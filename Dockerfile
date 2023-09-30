@@ -1,32 +1,26 @@
-FROM node:18-alpine AS build-stage
-
-# set working directory
+FROM node:18-alpine AS dependencies
+ENV NODE_ENV=production
 WORKDIR /app
-
-# copy package.json and package-lock.json to workdir
 COPY package*.json ./
-
-# install app dependencies or npm ci
 RUN npm ci
 
-# copy everyting (sourcecode) to docker env (workdir)
-COPY . ./
+FROM node:18-alpine AS builder
+ENV NODE_ENV=development
+WORKDIR /app
+COPY . .
+RUN npm ci && NODE_ENV=production npm run build
 
-# build production
-RUN npm next build
+FROM node:18-alpine AS production
+WORKDIR /app
+ENV HOST=0.0.0.0
+ENV PORT=3000
+ENV NODE_ENV=production
+COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/package*.json ./
+COPY --from=dependencies /app/node_modules ./node_modules
 
-#Stage 2
-FROM nginx:1.25.0-alpine AS production-stage
+EXPOSE 3000
 
-WORKDIR /usr/share/nginx/html
-
-#remove all default files nginx 
-RUN rm -rf ./*
-
-#copy nginx.conf
-COPY nginx.conf /etc/nginx/nginx.conf
-
-#copy all files and folder (dist) to workdir
-COPY --from=build-stage /app/dist ./
-
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+CMD ["node_modules/.bin/next", "start"]
