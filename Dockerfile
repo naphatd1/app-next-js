@@ -21,6 +21,6 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package*.json ./
 COPY --from=dependencies /app/node_modules ./node_modules
 
-EXPOSE 3000
+EXPOSE 4000
 
 CMD ["node_modules/.bin/next", "start"]
